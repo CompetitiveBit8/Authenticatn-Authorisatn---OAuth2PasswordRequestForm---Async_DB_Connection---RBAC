@@ -1,0 +1,84 @@
+from fastapi import FastAPI, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from models import Users
+from utils import verify_password, hash_password
+from auth_database import Base, get_db, engine
+from schemas import UsersCreate, UserLogin
+from jose import jwt
+from datetime import datetime, timedelta
+from fastapi.security import OAuth2PasswordRequestForm
+
+# Base.metadata.create_all(bind=engine)
+
+SECRET_KEY = "aTS6vQE5KZ_cRoB2qKqiPznajl4EPFkOTILJyLUUkx0"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRY_MINUTES = 30
+
+
+#major function that takes user data
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRY_MINUTES)
+    to_encode.update({"exp": expire})
+    encode_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encode_jwt
+
+app = FastAPI()
+
+# main.py
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+@app.post("/signup")
+# def register_user(user: UsersCreate, db: Session = Depends(get_db)):
+async def register_user(user: UsersCreate, db: AsyncSession = Depends(get_db)):
+
+    # check if the user exists or not
+    stmnt = select(Users).where(Users.username == user.username)
+    result = await db.execute(stmnt)
+    existing_user = result.scalars().first()
+
+    # existing_user = db.query(Users).filter(Users.username == user.username).first()
+
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    #hash the password
+    hashed_password = hash_password(user.password)    
+    
+    #create nue user instance
+    new_user = Users(
+        username = user.username,
+        email = user.email,
+        password = hashed_password,
+        role = user.role
+        )
+    
+    #save user in databse
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+
+    #return the value (excluding password)
+    return {"id": new_user.id, "username": new_user.username, "email": new_user.email, "role": new_user.role}
+
+@app.post("/login")
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+# async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+
+    stmnt = select(Users).where(Users.username == form_data.username)
+    result = await db.execute(stmnt)
+    user_info = result.scalar()
+
+    # user_info = db.query(Users).filter(Users.username == form_data.username).first()
+    if not user_info:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username")
+    if not verify_password(form_data.password, user_info.password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
+
+    token_data = {"sub": user_info.username, "role": user_info.role}
+    token = create_access_token(token_data)
+    return {"access_token": token, "token_type": "bearer"}
