@@ -10,7 +10,6 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 
-# Base.metadata.create_all(bind=engine)
 
 SECRET_KEY = "aTS6vQE5KZ_cRoB2qKqiPznajl4EPFkOTILJyLUUkx0"
 ALGORITHM = "HS256"
@@ -34,7 +33,6 @@ async def startup():
         await conn.run_sync(Base.metadata.create_all)
 
 @app.post("/signup")
-# def register_user(user: UsersCreate, db: Session = Depends(get_db)):
 async def register_user(user: UsersCreate, db: AsyncSession = Depends(get_db)):
 
     # check if the user exists or not
@@ -42,7 +40,6 @@ async def register_user(user: UsersCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(stmnt)
     existing_user = result.scalars().first()
 
-    # existing_user = db.query(Users).filter(Users.username == user.username).first()
 
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
@@ -67,13 +64,11 @@ async def register_user(user: UsersCreate, db: AsyncSession = Depends(get_db)):
 
 @app.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
-# async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
 
     stmnt = select(Users).where(Users.username == form_data.username)
     result = await db.execute(stmnt)
     user_info = result.scalar()
 
-    # user_info = db.query(Users).filter(Users.username == form_data.username).first()
     if not user_info:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username")
     if not verify_password(form_data.password, user_info.password):
@@ -120,8 +115,13 @@ def profile(current_user: dict = Depends(require_roles(["user", "admin"]))):
 
 @app.get("/user/dashboard")
 def user_dashboard(curren_user: dict = Depends(require_roles(["user", "admin"]))):
-    return {"message": "welcome User"}
+    if curren_user.get("role") == "user":
+        return {"message": "Welcome User"}
+    elif curren_user.get("role") == "admin":
+        return {"message": f"Welcome to the user dashboard, Admin"}
+        
+
 
 @app.get("/admin/dashboard")
 def user_dashboard(curren_user: dict = Depends(require_roles(["admin"]))):
-    return {"message": "welcome Admin"}
+    return {"message": "Welcome Admin"}

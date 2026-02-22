@@ -12,21 +12,3 @@ class Users(Base):
     # age: Mapped [int] = mapped_column(index=True)
     # address : Mapped [str] = mapped_column(index=True)
     role : Mapped [str] = mapped_column(index=True)
-
-
-
-# class Users(Base):
-#     __tablename__ = "users"
-
-#     id = Column(Integer, primary_key=True, index=True)
-#     username = Column(String, index=True)
-#     password = Column(String, index=True)
-#     role = Column(String, index=True)
-
-# class posts(Base):
-#     __tablename__ = "post"
-
-#     id = Column(Integer, primary_key=True, index=True)
-#     title = Column(String, index=True)
-#     content = Column(String, index=True)
-#     author = Column(String)
