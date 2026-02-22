@@ -119,7 +119,7 @@ def profile(current_user: dict = Depends(require_roles(["user", "admin"]))):
     return{"message": f"Profile of {current_user["username"]} ({current_user["role"]})"}
 
 @app.get("/user/dashboard")
-def user_dashboard(curren_user: dict = Depends(require_roles(["user"]))):
+def user_dashboard(curren_user: dict = Depends(require_roles(["user", "admin"]))):
     return {"message": "welcome User"}
 
 @app.get("/admin/dashboard")
